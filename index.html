@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Huke Tag: Final</title>
+  <title>Huke Tag</title>
   <style>
     body {
       margin: 0;
@@ -101,7 +101,7 @@
   <!-- Main Menu -->
   <div id="mainMenu" class="screen">
     <div class="container">
-      <h1>🔥 Huke Tag: Online</h1>
+      <h1>🔥 Huke Tag</h1>
       <div id="userEmail"></div>
       <button id="createBtn">Create Room</button>
       <button id="joinBtn">Join Room</button>
@@ -174,12 +174,14 @@
     </div>
   </div>
 
-  <!-- Firebase Modular SDK -->
+  <!-- FULL MODULE SCRIPT -->
   <script type="module">
+    // ===== FIREBASE IMPORTS =====
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import { getDatabase } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, set, update, onValue, remove, transaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+    // ===== FIREBASE CONFIG =====
     const firebaseConfig = {
       apiKey: "AIzaSyBFI_gw-K94K_bfAYvypoZNNiuk8-QgH-Q",
       authDomain: "huke-tag.firebaseapp.com",
@@ -193,20 +195,7 @@
     const auth = getAuth(app);
     const database = getDatabase(app);
 
-    window.firebaseAuth = auth;
-    window.firebaseDatabase = database;
-  </script>
-
-  <script>
-    // Wait for Firebase
-    function waitForFirebase(callback) {
-      if (window.firebaseAuth && window.firebaseDatabase) {
-        callback();
-      } else {
-        setTimeout(() => waitForFirebase(callback), 100);
-      }
-    }
-
+    // ===== DOM REFERENCES =====
     const screens = {
       auth: document.getElementById('authScreen'),
       main: document.getElementById('mainMenu'),
@@ -221,49 +210,41 @@
       screens[name].classList.add('active');
     }
 
-    // Auth UI
+    // ===== AUTH UI =====
     document.getElementById('loginBtn').onclick = () => {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      waitForFirebase(() => {
-        window.firebaseAuth.signInWithEmailAndPassword(email, password)
-          .catch(e => alert("Login failed: " + e.message));
-      });
+      signInWithEmailAndPassword(auth, email, password)
+        .catch(e => alert("Login failed: " + e.message));
     };
 
     document.getElementById('signupBtn').onclick = () => {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      waitForFirebase(() => {
-        window.firebaseAuth.createUserWithEmailAndPassword(email, password)
-          .catch(e => alert("Sign up failed: " + e.message));
-      });
+      createUserWithEmailAndPassword(auth, email, password)
+        .catch(e => alert("Sign up failed: " + e.message));
     };
 
     document.getElementById('logoutBtn').onclick = () => {
-      waitForFirebase(() => {
-        window.firebaseAuth.signOut().then(() => showScreen('auth'));
-      });
+      signOut(auth).then(() => showScreen('auth'));
     };
 
-    waitForFirebase(() => {
-      window.firebaseAuth.onAuthStateChanged(user => {
-        if (user) {
-          document.getElementById('userEmail').textContent = `Logged in as: ${user.email}`;
-          showScreen('main');
-        } else {
-          showScreen('auth');
-        }
-      });
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById('userEmail').textContent = `Logged in as: ${user.email}`;
+        showScreen('main');
+      } else {
+        showScreen('auth');
+      }
     });
 
-    // ===== CONSTANTS =====
+    // ===== GAME CONSTANTS =====
     const WORLD_WIDTH = 1200;
     const WORLD_HEIGHT = 800;
     const SCREEN_WIDTH = 1000;
     const SCREEN_HEIGHT = 600;
 
-    // ===== 32 MAPS =====
+    // ===== 32 MAPS (Among Us–style) =====
     const MAPS = {
       solaris_core: { name: "Solaris Core", walls: [{x:0,y:0,w:WORLD_WIDTH,h:20},{x:0,y:WORLD_HEIGHT-20,w:WORLD_WIDTH,h:20},{x:0,y:0,w:20,h:WORLD_HEIGHT},{x:WORLD_WIDTH-20,y:0,w:20,h:WORLD_HEIGHT},{x:590,y:100,w:20,h:600},{x:100,y:100,w:200,h:150},{x:900,y:100,w:180,h:150},{x:100,y:550,w:150,h:120},{x:930,y:550,w:150,h:120},{x:300,y:350,w:120,h:100},{x:780,y:350,w:120,h:100}] },
       verdant_spire: { name: "Verdant Spire", walls: [{x:0,y:0,w:WORLD_WIDTH,h:20},{x:0,y:WORLD_HEIGHT-20,w:WORLD_WIDTH,h:20},{x:0,y:0,w:20,h:WORLD_HEIGHT},{x:WORLD_WIDTH-20,y:0,w:20,h:WORLD_HEIGHT},{x:590,y:150,w:20,h:500},{x:150,y:150,w:180,h:120},{x:870,y:150,w:160,h:120},{x:150,y:530,w:180,h:120},{x:870,y:530,w:160,h:120},{x:350,y:350,w:100,h:100},{x:750,y:350,w:100,h:100}] },
@@ -301,6 +282,7 @@
 
     const NAMES = ["Liam","Noah","Oliver","James","Elijah","William","Henry","Lucas","Benjamin","Theo","Emma","Olivia","Ava","Charlotte","Sophia","Amelia","Isabella","Mia","Evelyn","Harper","Alex","Taylor","Jordan","Casey","Riley","Quinn","Morgan","Dakota","Skyler","Avery","Leo","Max","Finn","Arlo","Eli","Jude","Kai","Luca","Zane","Nico"];
 
+    // ===== GAME STATE =====
     let localPlayerId = null;
     let localPlayerName = null;
     let localColor = '#ff5252';
@@ -323,7 +305,7 @@
     let startTime = Date.now();
     let survivalTime = 0;
 
-    // UI Navigation
+    // ===== UI NAVIGATION =====
     document.getElementById('createBtn').onclick = () => {
       showScreen('create');
       document.getElementById('mapSelector').style.display = 'block';
@@ -344,53 +326,6 @@
         select.appendChild(opt);
       });
     }
-
-    // ===== FULL GAME LOGIC =====
-    document.getElementById('createRoomBtn').onclick = () => {
-      const user = window.firebaseAuth.currentUser;
-      if (!user) return alert("Please log in first!");
-
-      const roomCode = document.getElementById('roomName').value.trim();
-      if (!roomCode) return alert("Enter a room code");
-      const maxPlayers = parseInt(document.getElementById('maxPlayers').value);
-      isPracticeMode = document.getElementById('practiceMode').checked;
-      selectedMap = document.getElementById('mapSelect').value;
-      gameMode = document.getElementById('gameMode').value;
-      localColor = document.getElementById('avatarColor').value;
-      roomId = roomCode;
-      localPlayerId = user.uid;
-      localPlayerName = user.email.split('@')[0] || "Player";
-      isHost = true;
-
-      showScreen('game');
-      if (isPracticeMode) {
-        startPracticeMode(maxPlayers - 1);
-      } else {
-        startMultiplayerAsHost(maxPlayers);
-      }
-    };
-
-    document.getElementById('joinCodeBtn').onclick = () => {
-      const user = window.firebaseAuth.currentUser;
-      if (!user) return alert("Please log in first!");
-
-      const code = document.getElementById('joinCode').value.trim();
-      if (!code) return alert("Enter room code");
-
-      roomId = code;
-      localPlayerId = user.uid;
-      localPlayerName = user.email.split('@')[0] || "Player";
-      localColor = '#4fc3f7';
-      isHost = false;
-      isPracticeMode = false;
-
-      showScreen('game');
-      joinMultiplayerRoom();
-    };
-
-    document.getElementById('leaveGameBtn').onclick = () => {
-      endGame(null, true);
-    };
 
     // ===== PLAYER CLASS =====
     class Player {
@@ -480,7 +415,53 @@
       }
     }
 
-    // ===== PRACTICE MODE =====
+    // ===== GAME LOGIC =====
+    document.getElementById('createRoomBtn').onclick = () => {
+      const user = auth.currentUser;
+      if (!user) return alert("Please log in first!");
+
+      const roomCode = document.getElementById('roomName').value.trim();
+      if (!roomCode) return alert("Enter a room code");
+      const maxPlayers = parseInt(document.getElementById('maxPlayers').value);
+      isPracticeMode = document.getElementById('practiceMode').checked;
+      selectedMap = document.getElementById('mapSelect').value;
+      gameMode = document.getElementById('gameMode').value;
+      localColor = document.getElementById('avatarColor').value;
+      roomId = roomCode;
+      localPlayerId = user.uid;
+      localPlayerName = user.email.split('@')[0] || "Player";
+      isHost = true;
+
+      showScreen('game');
+      if (isPracticeMode) {
+        startPracticeMode(maxPlayers - 1);
+      } else {
+        startMultiplayerAsHost(maxPlayers);
+      }
+    };
+
+    document.getElementById('joinCodeBtn').onclick = () => {
+      const user = auth.currentUser;
+      if (!user) return alert("Please log in first!");
+
+      const code = document.getElementById('joinCode').value.trim();
+      if (!code) return alert("Enter room code");
+
+      roomId = code;
+      localPlayerId = user.uid;
+      localPlayerName = user.email.split('@')[0] || "Player";
+      localColor = '#4fc3f7';
+      isHost = false;
+      isPracticeMode = false;
+
+      showScreen('game');
+      joinMultiplayerRoom();
+    };
+
+    document.getElementById('leaveGameBtn').onclick = () => {
+      endGame(null, true);
+    };
+
     function startPracticeMode(botCount) {
       const human = new Player(localPlayerId, "You", WORLD_WIDTH/2, WORLD_HEIGHT/2, localColor, true);
       players = { [localPlayerId]: human };
@@ -511,44 +492,44 @@
       gameLoop();
     }
 
-    // ===== MULTIPLAYER =====
     function startMultiplayerAsHost(maxPlayers) {
-      gameRef = window.firebaseDatabase.ref(`rooms/${roomId}`);
-      gameRef.once('value', (snapshot) => {
+      gameRef = ref(database, `rooms/${roomId}`);
+      onValue(gameRef, (snapshot) => {
         if (snapshot.exists()) return alert("Room already exists!");
-        gameRef.set({
-          host: localPlayerId,
-          maxPlayers,
-          map: selectedMap,
-          gameMode,
-          gameActive: true,
-          hukeHolderId: null,
-          timer: gameMode === 'chaos' ? 5 : 10,
-          createdAt: Date.now()
-        }).then(() => {
-          gameRef.child(`players/${localPlayerId}`).set({
-            name: localPlayerName,
-            x: WORLD_WIDTH/2,
-            y: WORLD_HEIGHT/2,
-            color: localColor,
-            active: true,
-            isHost: true,
-            stats: { wins: 0, survivalTime: 0 }
-          });
-          setupMultiplayerListeners();
+      }, { onlyOnce: true });
+
+      set(gameRef, {
+        host: localPlayerId,
+        maxPlayers,
+        map: selectedMap,
+        gameMode,
+        gameActive: true,
+        hukeHolderId: null,
+        timer: gameMode === 'chaos' ? 5 : 10,
+        createdAt: Date.now()
+      }).then(() => {
+        set(ref(database, `rooms/${roomId}/players/${localPlayerId}`), {
+          name: localPlayerName,
+          x: WORLD_WIDTH/2,
+          y: WORLD_HEIGHT/2,
+          color: localColor,
+          active: true,
+          isHost: true,
+          stats: { wins: 0, survivalTime: 0 }
         });
+        setupMultiplayerListeners();
       });
     }
 
     function joinMultiplayerRoom() {
-      gameRef = window.firebaseDatabase.ref(`rooms/${roomId}`);
-      gameRef.once('value', (snapshot) => {
+      gameRef = ref(database, `rooms/${roomId}`);
+      onValue(gameRef, (snapshot) => {
         if (!snapshot.exists()) return alert("Room not found");
         const room = snapshot.val();
         if (Object.keys(room.players || {}).length >= room.maxPlayers) {
           return alert("Room is full");
         }
-        gameRef.child(`players/${localPlayerId}`).set({
+        set(ref(database, `rooms/${roomId}/players/${localPlayerId}`), {
           name: localPlayerName,
           x: Math.random() * (WORLD_WIDTH - 100) + 50,
           y: Math.random() * (WORLD_HEIGHT - 100) + 50,
@@ -557,11 +538,11 @@
           stats: { wins: 0, survivalTime: 0 }
         });
         setupMultiplayerListeners();
-      });
+      }, { onlyOnce: true });
     }
 
     function setupMultiplayerListeners() {
-      gameRef.on('value', (snapshot) => {
+      onValue(ref(database, `rooms/${roomId}`), (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
 
@@ -587,7 +568,6 @@
       startGameLoop();
     }
 
-    // ===== INPUT =====
     function handleKeyDown(e) {
       keys[e.key.toLowerCase()] = true;
       if (e.key === ' ' && gameActive && gameMode !== 'survival') {
@@ -610,7 +590,7 @@
               hukeHolderId = nearest;
               resetTimer();
             } else {
-              gameRef.child('passRequest').set({
+              set(ref(database, `rooms/${roomId}/passRequest`), {
                 from: localPlayerId,
                 to: nearest,
                 timestamp: Date.now()
@@ -625,7 +605,6 @@
       keys[e.key.toLowerCase()] = false;
     }
 
-    // ===== TIMER & ELIMINATION =====
     function startTimer() {
       clearInterval(timerInterval);
       timer = gameMode === 'chaos' ? 5 : 10;
@@ -644,7 +623,7 @@
         clearInterval(timerInterval);
         startTimer();
       } else {
-        if (gameRef) gameRef.child('timer').set(gameMode === 'chaos' ? 5 : 10);
+        set(ref(database, `rooms/${roomId}/timer`), gameMode === 'chaos' ? 5 : 10);
       }
     }
 
@@ -680,27 +659,24 @@
         hukeHolderId = newHolder.id;
         resetTimer();
       } else {
-        if (gameRef) {
-          gameRef.child(`players/${hukeHolderId}/active`).set(false);
-          const aliveIds = Object.keys(players).filter(id => players[id].active && id !== hukeHolderId);
-          if (aliveIds.length <= 1) {
-            const winnerId = aliveIds[0] || localPlayerId;
-            const isWinner = winnerId === localPlayerId;
-            survivalTime = Math.floor((Date.now() - startTime) / 1000);
-            gameRef.child('gameActive').set(false);
-            gameRef.child(`players/${winnerId}/stats/wins`).transaction(wins => (wins || 0) + 1);
-            gameRef.child(`players/${winnerId}/stats/survivalTime`).transaction(time => (time || 0) + survivalTime);
-            endGame(isWinner ? 'win' : 'loss', false, isWinner ? 1 : 0, survivalTime);
-            return;
-          }
-          const newHolderId = aliveIds[Math.floor(Math.random() * aliveIds.length)];
-          gameRef.child('hukeHolderId').set(newHolderId);
-          gameRef.child('timer').set(gameMode === 'chaos' ? 5 : 10);
+        update(ref(database, `rooms/${roomId}/players/${hukeHolderId}`), { active: false });
+        const aliveIds = Object.keys(players).filter(id => players[id].active && id !== hukeHolderId);
+        if (aliveIds.length <= 1) {
+          const winnerId = aliveIds[0] || localPlayerId;
+          const isWinner = winnerId === localPlayerId;
+          survivalTime = Math.floor((Date.now() - startTime) / 1000);
+          set(ref(database, `rooms/${roomId}/gameActive`), false);
+          transaction(ref(database, `rooms/${roomId}/players/${winnerId}/stats/wins`), wins => (wins || 0) + 1);
+          transaction(ref(database, `rooms/${roomId}/players/${winnerId}/stats/survivalTime`), time => (time || 0) + survivalTime);
+          endGame(isWinner ? 'win' : 'loss', false, isWinner ? 1 : 0, survivalTime);
+          return;
         }
+        const newHolderId = aliveIds[Math.floor(Math.random() * aliveIds.length)];
+        set(ref(database, `rooms/${roomId}/hukeHolderId`), newHolderId);
+        set(ref(database, `rooms/${roomId}/timer`), gameMode === 'chaos' ? 5 : 10);
       }
     }
 
-    // ===== GAME LOOP =====
     function gameLoop() {
       if (!gameActive) return;
 
@@ -725,8 +701,8 @@
       const local = players[localPlayerId];
       if (!local) return;
 
-      if (!isPracticeMode && gameRef) {
-        gameRef.child(`players/${localPlayerId}`).update({
+      if (!isPracticeMode) {
+        update(ref(database, `rooms/${roomId}/players/${localPlayerId}`), {
           x: local.x,
           y: local.y
         });
@@ -761,7 +737,6 @@
       gameLoop();
     }
 
-    // ===== STATS & CLEANUP =====
     function endGame(reason, leftEarly = false, wins = 0, survival = 0) {
       gameActive = false;
       clearInterval(timerInterval);
@@ -784,8 +759,8 @@
         <div class="stat-row"><strong>Leaderboard (Top 5)</strong></div>
       `;
 
-      if (gameRef && !isPracticeMode) {
-        gameRef.child('players').once('value', (snapshot) => {
+      if (!isPracticeMode) {
+        onValue(ref(database, `rooms/${roomId}/players`), (snapshot) => {
           const playersData = snapshot.val() || {};
           const leaderboard = Object.values(playersData)
             .map(p => ({ name: p.name, wins: p.stats?.wins || 0, time: p.stats?.survivalTime || 0 }))
@@ -798,7 +773,7 @@
             div.textContent = `#${i+1} ${p.name} - ${p.wins} wins, ${p.time}s`;
             statsList.appendChild(div);
           });
-        });
+        }, { onlyOnce: true });
       } else {
         const div = document.createElement('div');
         div.className = 'stat-row';
